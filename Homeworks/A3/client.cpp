@@ -1,19 +1,18 @@
-#include <iostream>      // For input/output operations
-#include <cstring>       // For memory operations like memset
-#include <unistd.h>      // For system calls like close
-#include <arpa/inet.h>   // For network-related functions
-#include <netinet/ip.h>  // For IP headers
-#include <netinet/tcp.h> // For TCP headers
-#include <sys/socket.h>  // For socket operations
-#include <errno.h>       // For error handling
+#include <iostream>      
+#include <cstring>       
+#include <unistd.h>      
+#include <arpa/inet.h>   
+#include <netinet/ip.h>  
+#include <netinet/tcp.h> 
+#include <sys/socket.h>  
+#include <errno.h>       
 
 #define SERVER_IP "127.0.0.1"  // Server's IP address
-#define SERVER_PORT 12345      // Server's port number (matches the server code)
-#define CLIENT_PORT 54321      // Source port for our packets
+#define SERVER_PORT 12345      // Server's port number (given in server.cpp)
+#define CLIENT_PORT 54321      // Source port for our packets (from server.cpp)
 
 int main() {
     // Create a raw socket for sending custom TCP packets
-    // AF_INET: IPv4, SOCK_RAW: raw network protocol access, IPPROTO_TCP: TCP protocol
     int sock = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
     if (sock < 0) {
         perror("Socket creation failed");
@@ -31,11 +30,11 @@ int main() {
     // Set up the server address structure
     struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));       // Clear the structure
-    server_addr.sin_family = AF_INET;                   // IPv4
-    server_addr.sin_port = htons(SERVER_PORT);          // Server port (convert to network byte order)
-    server_addr.sin_addr.s_addr = inet_addr(SERVER_IP); // Server IP
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(SERVER_PORT);
+    server_addr.sin_addr.s_addr = inet_addr(SERVER_IP);
 
-    // Step 1: Create and send SYN packet to initiate TCP handshake
+    // Create and send SYN packet to initiate TCP handshake
     
     // Allocate memory for the packet (IP header + TCP header)
     char syn_packet[sizeof(struct iphdr) + sizeof(struct tcphdr)];
@@ -73,7 +72,7 @@ int main() {
     }
     std::cout << "[+] Sent SYN packet with SEQ: 200" << std::endl;
 
-    // Step 2: Receive SYN-ACK packet from server
+    //Receive SYN-ACK packet from server
     
     char buffer[65536];                       // Buffer to store incoming packets
     struct sockaddr_in source_addr;           // Source address of incoming packets
@@ -102,11 +101,12 @@ int main() {
             std::cout << "[+] Received SYN-ACK with SEQ: " << ntohl(recv_tcp->seq) 
                       << " and ACK: " << ntohl(recv_tcp->ack_seq) << std::endl;
             
-            // Step 3: Send ACK packet to complete handshake
+            
+            //Send ACK packet to complete handshake
             
             // Allocate memory for the ACK packet
             char ack_packet[sizeof(struct iphdr) + sizeof(struct tcphdr)];
-            memset(ack_packet, 0, sizeof(ack_packet)); // Clear the packet buffer
+            memset(ack_packet, 0, sizeof(ack_packet));
             
             // Set up IP header for ACK packet
             struct iphdr *ack_ip = (struct iphdr *)ack_packet;
@@ -141,11 +141,10 @@ int main() {
             std::cout << "[+] Sent ACK packet with SEQ: 600 and ACK: " << ntohl(ack_tcp->ack_seq) << std::endl;
             std::cout << "[+] Three-way handshake completed successfully!" << std::endl;
             
-            syn_ack_received = true; // Mark SYN-ACK as received to exit loop
+            syn_ack_received = true; // Marking SYN-ACK as received to exit loop
         }
     }
     
-    // Close the socket to free resources
     close(sock);
     
     return 0;
