@@ -19,6 +19,16 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
+    // Set receive timeout
+    struct timeval tv;
+    tv.tv_sec = TIMEOUT_SEC;
+    tv.tv_usec = 0;
+    if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
+        perror("setsockopt() failed");
+        exit(EXIT_FAILURE);
+    }
+
+
     // Enable IP header inclusion - allows us to provide our own IP headers
     // This is required for raw sockets to specify our own IP header
     int one = 1;
@@ -72,6 +82,17 @@ int main() {
     }
     std::cout << "[+] Sent SYN packet with SEQ: 200" << std::endl;
 
+    bool syn_ack_received = false;
+    time_t start_time = time(NULL); // Track start time
+    
+    while (!syn_ack_received) {
+        // Check timeout
+        if (time(NULL) - start_time > TIMEOUT_SEC) {
+            std::cerr << "[-] Server not responding. It may be offline." << std::endl;
+            close(sock);
+            exit(EXIT_FAILURE);
+        }
+
     //Receive SYN-ACK packet from server
     
     char buffer[65536];                       // Buffer to store incoming packets
@@ -84,6 +105,19 @@ int main() {
         int data_size = recvfrom(sock, buffer, sizeof(buffer), 0, (struct sockaddr *)&source_addr, &addr_len);
         if (data_size < 0) {
             perror("Packet reception failed");
+            continue;
+        }
+
+        int data_size = recvfrom(sock, buffer, sizeof(buffer), 0, 
+                               (struct sockaddr *)&source_addr, &addr_len);
+        
+        if (data_size < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                std::cerr << "[-] Connection timed out. Server may be offline." << std::endl;
+                close(sock);
+                exit(EXIT_FAILURE);
+            }
+            perror("recvfrom() failed");
             continue;
         }
 
